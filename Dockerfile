@@ -4,7 +4,7 @@ FROM rust:1.81 as builder
 WORKDIR /app
 COPY . .
 
-RUN cargo build --release --bin YOUR_BINARY_NAME_AQUI
+RUN cargo build --release --example server
 
 # Etapa 2: Imagen de producción
 FROM debian:bullseye-slim
@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/
 WORKDIR /app
 
 # Copiar el binario compilado
-COPY --from=builder /app/target/release/YOUR_BINARY_NAME_AQUI /app/server
+COPY --from=builder /app/target/release/examples/server /app/server
 
 # Copiar certificados si quieres hacer test local
 # COPY cert.pem key.pem .
