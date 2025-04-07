@@ -2,7 +2,9 @@ version: "3.8"
 
 services:
   webtransport-server:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: webtransport
     ports:
       - "4433:4433/udp"
