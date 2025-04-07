@@ -46,12 +46,15 @@ async fn handle_connection(incoming_session: IncomingSession) {
     let mut buffer = vec![0; 65536].into_boxed_slice();
 
     if let Ok(session_request) = incoming_session.await {
+        let authority = session_request.authority().to_string();
+        let path = session_request.path().to_string();
+
         if let Ok(connection) = session_request.accept().await {
             info!(
-                "New session: Authority: '{}', Path: '{}'",
-                session_request.authority(),
-                session_request.path()
-            );
+            "New session: Authority: '{}', Path: '{}'",
+            authority,
+            path
+        );
 
             loop {
                 tokio::select! {
