@@ -1,19 +1,42 @@
+version: "3.8"
+
 services:
   webtransport-server:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile # Asegúrate que compile el ejemplo 'full'
     container_name: webtransport
-    ports:
+    # No expongas 8080 al host directamente, Nginx lo hará
+    # ports:
+    #   - "8080:8080" # <- Quita o comenta esto si Nginx accede por la red interna
+    expose: # Permite que otros contenedores en la misma red accedan
+      - "8080"
+    ports: # Sigue exponiendo UDP para WebTransport directo
       - "4433:4433/udp"
-      - "8080:8080"
     volumes:
       - ./certbot/conf:/etc/letsencrypt
-      - ./certbot/www:/var/www/certbot
+      - ./certbot/www:/var/www/certbot # Nginx también necesita acceso a www
     environment:
       - CERT_PATH=/etc/letsencrypt/live/wtransport.jmtrs.uk/fullchain.pem
       - KEY_PATH=/etc/letsencrypt/live/wtransport.jmtrs.uk/privkey.pem
     restart: unless-stopped
+    networks: # Define una red para que se comuniquen
+      - webtransport_net
+
+  nginx-proxy:
+    image: nginx:alpine
+    container_name: nginx_proxy
+    ports:
+      - "80:80" # Escucha en el puerto 80 del LXC
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro # Necesitarás crear este archivo
+      - ./certbot/www:/var/www/certbot # Comparte el directorio de desafíos
+      - ./certbot/conf:/etc/letsencrypt # Para certificados si usas HTTPS en Nginx (opcional)
+    depends_on:
+      - webtransport-server
+    restart: unless-stopped
+    networks:
+      - webtransport_net
 
   certbot:
     image: certbot/certbot
@@ -22,4 +45,12 @@ services:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
     entrypoint: >
-      sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot; sleep 12h; done'
+      sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --nginx --nginx-server-root /etc/nginx; sleep 12h; done' # O modifica para que Nginx recargue la config
+    depends_on:
+      - nginx-proxy # Depende de Nginx para la renovación
+    networks:
+      - webtransport_net
+
+networks: # Define la red
+  webtransport_net:
+    driver: bridge

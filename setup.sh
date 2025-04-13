@@ -1,14 +1,39 @@
 #!/bin/bash
 
-echo "Clonando repositorio..."
-git clone https://github.com/jmtrs/wtransport-example.git
-cd wtransport-example || { echo "No se pudo entrar al directorio"; exit 1; }
+set -e
 
-echo "Creando carpetas de certbot..."
+REPO_URL="https://github.com/jmtrs/wtransport-example.git"
+CLONE_DIR="wtransport-example"
+DOMAIN="wtransport.jmtrs.uk"
+
+echo "Clonando el repositorio si no existe..."
+if [ ! -d "$CLONE_DIR" ]; then
+  git clone --recursive "$REPO_URL"
+fi
+
+cd "$CLONE_DIR" || { echo "No se pudo acceder al directorio $CLONE_DIR"; exit 1; }
+
+echo "Preparando carpetas para Certbot..."
 mkdir -p certbot/conf certbot/www
 chmod -R 755 certbot
 
-echo "Construyendo y levantando contenedores con Docker Compose..."
-docker compose up -d --build
+echo "Solicitando certificado con Certbot..."
+docker run --rm -it \
+  -v "$(pwd)/certbot/conf:/etc/letsencrypt" \
+  -v "$(pwd)/certbot/www:/var/www/certbot" \
+  -p 80:80 \
+  certbot/certbot certonly \
+  --webroot \
+  -w /var/www/certbot \
+  -d "$DOMAIN" \
+  --register-unsafely-without-email \
+  --agree-tos
 
-echo "Hecho. Revisa Portainer o ejecuta 'docker ps' para verificar que esté corriendo."
+echo "Construyendo el backend..."
+docker compose build --no-cache
+
+echo "Levantando contenedores..."
+docker compose down || true
+docker compose up -d
+
+echo "Listo. Usa 'docker logs -f webtransport' para ver si está funcionando."
