@@ -9,6 +9,8 @@ use webtransport::WebTransportServer;
 use wtransport::tls::Sha256Digest;
 use wtransport::tls::Sha256DigestFmt;
 use wtransport::Identity;
+use std::net::Ipv4Addr;
+use std::net::SocketAddr;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -50,9 +52,10 @@ mod webtransport {
     }
 
     impl WebTransportServer {
+        pub const PORT: u16 = 4433;
         pub fn new(identity: Identity) -> Result<Self> {
             let config = ServerConfig::builder()
-                .with_bind_default(0)
+                .with_bind_address(SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), Self::PORT))
                 .with_identity(identity)
                 .keep_alive_interval(Some(Duration::from_secs(3)))
                 .build();
@@ -174,7 +177,7 @@ mod http {
             let router = Self::build_router(cert_digest, webtransport_port);
 
             let listener =
-                TcpListener::bind(SocketAddr::new(Ipv4Addr::LOCALHOST.into(), Self::PORT))
+                TcpListener::bind(SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), Self::PORT))
                     .await
                     .context("Cannot bind TCP listener for HTTP server")?;
 
